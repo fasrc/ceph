@@ -1122,6 +1122,7 @@ if(${WITH_RADOSGW})
     rgw/rgw_multi_del.cc
     rgw/rgw_object_expirer_core.cc
     rgw/rgw_op.cc
+    rgw/rgw_os_lib.cc
     rgw/rgw_policy_s3.cc
     rgw/rgw_process.cc
     rgw/rgw_quota.cc
@@ -1134,7 +1135,6 @@ if(${WITH_RADOSGW})
     rgw/rgw_rest_client.cc
     rgw/rgw_rest_config.cc
     rgw/rgw_rest_conn.cc
-    rgw/rgw_rest_lib.cc
     rgw/rgw_rest_log.cc
     rgw/rgw_rest_metadata.cc
     rgw/rgw_rest_opstate.cc

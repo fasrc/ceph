@@ -108,6 +108,7 @@ int pidfile_write()
 
 int pidfh::remove()
 {
+  derr << "pidfh::remove " << pf_path << dendl;
   if (!pf_path[0]) {
     return 0;
   }

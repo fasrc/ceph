@@ -306,19 +306,14 @@ void ECBackend::handle_recovery_push(
     if ((get_parent()->pgb_is_primary())) {
       assert(recovery_ops.count(op.soid));
       assert(recovery_ops[op.soid].obc);
-      object_stat_sum_t stats;
-      stats.num_objects_recovered = 1;
-      stats.num_bytes_recovered = recovery_ops[op.soid].obc->obs.oi.size;
       get_parent()->on_local_recover(
 	op.soid,
-	stats,
 	op.recovery_info,
 	recovery_ops[op.soid].obc,
 	&m->t);
     } else {
       get_parent()->on_local_recover(
 	op.soid,
-	object_stat_sum_t(),
 	op.recovery_info,
 	ObjectContextRef(),
 	&m->t);
@@ -595,7 +590,11 @@ void ECBackend::continue_recovery_op(
 		object_stat_sum_t());
 	    }
 	  }
-	  get_parent()->on_global_recover(op.hoid);
+	  object_stat_sum_t stat;
+	  stat.num_bytes_recovered = op.recovery_info.size;
+	  stat.num_keys_recovered = 0; // ??? op ... omap_entries.size(); ?
+	  stat.num_objects_recovered = 1;
+	  get_parent()->on_global_recover(op.hoid, stat);
 	  dout(10) << __func__ << ": WRITING return " << op << dendl;
 	  recovery_ops.erase(op.hoid);
 	  return;
@@ -859,7 +858,7 @@ void ECBackend::handle_sub_write(
     op.trim_to,
     op.trim_rollback_to,
     !(op.t.empty()),
-    &localt);
+    localt);
 
   ReplicatedPG *_rPG = dynamic_cast<ReplicatedPG *>(get_parent());
   if (_rPG && !_rPG->is_undersized() &&
@@ -1343,7 +1342,7 @@ struct MustPrependHashInfo : public ObjectModDesc::Visitor {
 void ECBackend::submit_transaction(
   const hobject_t &hoid,
   const eversion_t &at_version,
-  PGTransaction *_t,
+  PGTransactionUPtr &&_t,
   const eversion_t &trim_to,
   const eversion_t &trim_rollback_to,
   const vector<pg_log_entry_t> &log_entries,
@@ -1371,7 +1370,7 @@ void ECBackend::submit_transaction(
   op->reqid = reqid;
   op->client_op = client_op;
   
-  op->t = static_cast<ECTransaction*>(_t);
+  op->t.reset(dynamic_cast<ECTransaction*>(_t.release()));
 
   set<hobject_t, hobject_t::BitwiseComparator> need_hinfos;
   op->t->get_append_objects(&need_hinfos);
@@ -1831,7 +1830,6 @@ void ECBackend::start_write(Op *op) {
       op->on_local_applied_sync = 0;
     } else {
       MOSDECSubOpWrite *r = new MOSDECSubOpWrite(sop);
-      r->set_priority(cct->_conf->osd_client_op_priority);
       r->pgid = spg_t(get_parent()->primary_spg_t().pgid, i->shard);
       r->map_epoch = get_parent()->get_epoch();
       get_parent()->send_message_osd_cluster(
@@ -1973,7 +1971,7 @@ void ECBackend::objects_read_async(
 	c)));
 
   start_read_op(
-    cct->_conf->osd_client_op_priority,
+    CEPH_MSG_PRIO_DEFAULT,
     for_read_op,
     OpRequestRef(),
     fast_read, false);

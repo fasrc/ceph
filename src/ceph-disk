@@ -1235,7 +1235,8 @@ def update_partition(dev, description):
             LOG.debug('partprobe %s failed : %s (ignored, waiting 60s)' % (dev, error))
             time.sleep(60)
     if not partprobe_ok:
-        raise Error('partprobe %s failed : %s' % (dev, error))
+        LOG.warn('FASRC: SKIPPING FOLLOWING ERROR DUE TO KNOWN ISSUE:\n'
+                 'partprobe %s failed : %s' % (dev, error))
     command_check_call(['udevadm', 'settle', '--timeout=600'])
 
 def zap(dev):
